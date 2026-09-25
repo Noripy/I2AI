@@ -28,7 +28,7 @@ const EARLY = [/途中/, /現時点/, /一旦/, /進捗/, /[0-9０-９]+ ?[%％�
 
 const OWN_PROPOSAL = [/(と|って)考えて(い|お)/, /しようと思/, /(案|方針)(は|として|です)/, /(A|B|１|２|1|2)案/, /どちらが/, /のほうが/];
 
-export type RuleResult = { axes: AxisScores; notes: string[]; weakest: string | null };
+export type RuleResult = { axes: AxisScores; missed: string[]; hoarding: boolean; notes: string[]; weakest: string | null };
 
 function avg(ns: number[]): number | null {
   return ns.length ? ns.reduce((a, b) => a + b, 0) / ns.length : null;
@@ -77,60 +77,71 @@ function answers(question: string, reply: string): boolean {
   return kws.some((k) => reply.includes(k));
 }
 
-/** AI の質問に、直後のユーザー発言が答えているか */
-function scoreListening(messages: Message[]): { score: number | null; missed: string[] } {
-  let asked = 0;
-  const missed: string[] = [];
+export type QaPair = { question: string; answer: string };
+
+/** AI の質問と、その直後のユーザー発言の組。まだ答える機会がない質問は含めない */
+export function qaPairs(messages: Message[]): QaPair[] {
+  const pairs: QaPair[] = [];
   messages.forEach((m, i) => {
     if (m.role !== "assistant") return;
     const next = messages.slice(i + 1).find((n) => n.role === "user");
-    if (!next) return; // まだ答える機会がない質問は対象外
+    if (!next) return;
     const questions = m.questions?.length ? m.questions : splitSentences(m.content).filter((s) => /[？?]$/.test(s));
-    for (const q of questions) {
-      asked++;
-      if (!answers(q, next.content)) missed.push(q);
-    }
+    for (const q of questions) pairs.push({ question: q, answer: next.content });
   });
-  if (asked === 0) return { score: null, missed };
-  return { score: clamp(100 * (1 - missed.length / asked)), missed };
+  return pairs;
 }
 
-export function scoreByRules(messages: Message[], traits: Trait[] = []): RuleResult {
-  // 「採点して」等のアプリへの指示は報連相ではないので採点対象から外す
-  const userMsgs = messages
+/** 「採点して」等のアプリへの指示は報連相ではないので採点対象から外す */
+export function userUtterances(messages: Message[]): string[] {
+  return messages
     .filter((m) => m.role === "user" && (m.intent ?? routeByRules(m.content)?.intent) !== "analyze")
     .map((m) => m.content);
-  const substantive = userMsgs.filter((m) => m.length >= 15);
-  const consults = userMsgs.filter((m) => routeByRules(m)?.intent === "consult");
-  const listening = scoreListening(messages);
+}
 
-  const axes: AxisScores = {
-    conclusionFirst: avg(substantive.map(scoreConclusionFirst)),
-    specificity: avg(substantive.map(scoreSpecificity)),
-    conciseness: avg(userMsgs.map(scoreConciseness)),
-    earlySharing: avg(substantive.map(scoreEarlySharing)),
-    listening: listening.score,
-    consultQuality: avg(consults.map(scoreConsult)),
-  };
-  for (const k of Object.keys(axes) as Axis[]) {
-    if (axes[k] !== null) axes[k] = clamp(axes[k]!);
-  }
+export function isConsult(text: string): boolean {
+  return routeByRules(text)?.intent === "consult";
+}
 
+/** 決定的に検出できた注意点を、特性に合わせた言葉で返す */
+export function buildNotes(missed: string[], hoarding: boolean, traits: Trait[]): string[] {
   const notes: string[] = [];
-  if (listening.missed.length) notes.push(`答えていない質問があります: 「${listening.missed[0]}」`);
-  if (userMsgs.some((m) => countMatches(m, HOARDING) > 0)) {
+  if (missed.length) notes.push(`答えていない質問があります: 「${missed[0]}」`);
+  if (hoarding) {
     notes.push(
       traits.includes("perfectionist")
         ? "「完璧にしてから」は黄信号。60%の段階で方向性を見てもらうと手戻りが減ります"
         : "抱え込みのサインがあります。途中経過での共有を意識しましょう",
     );
   }
+  return notes;
+}
+
+export function scoreByRules(messages: Message[], traits: Trait[] = []): RuleResult {
+  const userMsgs = userUtterances(messages);
+  const substantive = userMsgs.filter((m) => m.length >= 15);
+  const consults = userMsgs.filter(isConsult);
+  const pairs = qaPairs(messages);
+  const missed = pairs.filter((p) => !answers(p.question, p.answer)).map((p) => p.question);
+  const hoarding = userMsgs.some((m) => countMatches(m, HOARDING) > 0);
+
+  const axes: AxisScores = {
+    conclusionFirst: avg(substantive.map(scoreConclusionFirst)),
+    specificity: avg(substantive.map(scoreSpecificity)),
+    conciseness: avg(userMsgs.map(scoreConciseness)),
+    earlySharing: avg(substantive.map(scoreEarlySharing)),
+    listening: pairs.length ? 100 * (1 - missed.length / pairs.length) : null,
+    consultQuality: avg(consults.map(scoreConsult)),
+  };
+  for (const k of Object.keys(axes) as Axis[]) {
+    if (axes[k] !== null) axes[k] = clamp(axes[k]!);
+  }
 
   const weakest = substantive.length
     ? substantive.reduce((w, m) => (scoreConclusionFirst(m) + scoreConciseness(m) < scoreConclusionFirst(w) + scoreConciseness(w) ? m : w))
     : null;
 
-  return { axes, notes, weakest };
+  return { axes, missed, hoarding, notes: buildNotes(missed, hoarding, traits), weakest };
 }
 
 /** ユーザー設定の悩みに対応する軸を重く見る */

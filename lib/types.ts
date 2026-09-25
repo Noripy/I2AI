@@ -72,12 +72,15 @@ export type AnalysisResult = {
   improve: string[];
   rewrite: { before: string; after: string } | null;
   nextAction: string;
-  source: "rules" | "rules+gemini";
+  /** どの判定器が効いたか。API が止まっても rules だけで結果は出る */
+  source: "rules" | "rules+gemini" | "rules+jev" | "rules+jev+gemini";
 };
 
 export type ChatReply = {
   intent: Intent;
-  routedBy: "rules" | "gemini" | "fallback";
+  routedBy: "rules" | "jev" | "gemini" | "fallback";
+  /** Jev の確信度（0〜1） */
+  confidence?: number;
   reply: string;
   hint: string;
   questions: string[];

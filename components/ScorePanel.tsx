@@ -1,5 +1,12 @@
 import { AXES, AXIS_LABELS, type AnalysisResult } from "@/lib/types";
 
+const SOURCE_LABELS: Record<AnalysisResult["source"], string> = {
+  rules: "ルールのみ",
+  "rules+gemini": "ルール + Gemini",
+  "rules+jev": "ルール + Jev",
+  "rules+jev+gemini": "ルール + Jev + Gemini",
+};
+
 function band(score: number): string {
   if (score >= 80) return "good";
   if (score >= 60) return "ok";
@@ -14,7 +21,7 @@ export function ScorePanel({ result }: { result: AnalysisResult }) {
         <span className="overall-unit">/ 100</span>
       </div>
       <p className="muted small">
-        報告 {result.counts.report} ・ 連絡 {result.counts.contact} ・ 相談 {result.counts.consult} ／ 採点: {result.source === "rules" ? "ルールのみ" : "ルール + Gemini"}
+        報告 {result.counts.report} ・ 連絡 {result.counts.contact} ・ 相談 {result.counts.consult} ／ 採点: {SOURCE_LABELS[result.source]}
       </p>
 
       <ul className="axes">
