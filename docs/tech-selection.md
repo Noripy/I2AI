@@ -1,5 +1,7 @@
 # 技術選定: 候補比較と決定
 
+> **この資料の結論**: まずは **案A（Next.js + Vercel + Gemini）** で最短で作り、判定・数値化は **Jev** に任せる。商用化するときは **案B（Cloudflare）** へ移す。
+
 ## 前提条件（選定の物差し）
 
 | # | 条件 | 理由 |
@@ -9,6 +11,20 @@
 | 3 | **意図判定 → 処理の振り分け**ができる | 報告・連絡・相談・タスク分解・採点で処理が違う |
 | 4 | **LLM 出力を型で縛れる** | スコアは数値。自由文のままだと画面が壊れる |
 | 5 | **少ない工数で作り切れる** | まず使って、フィードバックを得るのが最優先 |
+
+### 図1: 選定の考え方（条件で候補をふるい落とす）
+
+```mermaid
+flowchart TD
+  S["要件<br/>無料で完結 / Gemini と会話 / 意図で振り分け"] --> Q1{"クレカ登録なしで<br/>無料枠に収まる？"}
+  Q1 -- "いいえ" --> C["案C Firebase + Genkit<br/>Blaze プラン必須 → 不採用"]
+  Q1 -- "はい" --> Q2{"一般ユーザーに<br/>配れる画面を作れる？"}
+  Q2 -- "いいえ" --> D["案D Streamlit<br/>試作向き → 不採用"]
+  Q2 -- "はい" --> Q3{"今すぐ商用化する？"}
+  Q3 -- "はい" --> B["案B Cloudflare<br/>商用も無料枠で可"]
+  Q3 -- "いいえ、まず検証" --> A["案A Next.js + Vercel<br/>最小工数 → 採用"]
+  A -. "商用化するとき移行" .-> B
+```
 
 ---
 
@@ -49,6 +65,26 @@
 
 ## 比較表
 
+### 図2: 工数と無料枠の広さ（左上ほど「手軽で長く無料」）
+
+```mermaid
+quadrantChart
+  title 工数と無料枠の広さ
+  x-axis "工数 小" --> "工数 大"
+  y-axis "無料枠 狭い" --> "無料枠 広い"
+  quadrant-1 "広いが重い"
+  quadrant-2 "狙い目"
+  quadrant-3 "手軽だが限定的"
+  quadrant-4 "避ける"
+  "A Next.js + Vercel": [0.3, 0.62]
+  "B Cloudflare": [0.58, 0.9]
+  "C Firebase + Genkit": [0.82, 0.15]
+  "D Streamlit": [0.12, 0.42]
+```
+
+案A は「無料枠の広さ」では案B に負けますが、工数の小ささで上回ります。**検証フェーズでは工数を優先**し、商用化のタイミングで右上（案B）へ移る計画です。
+
+
 | 観点 | A: Next.js + Vercel | B: Cloudflare | C: Firebase + Genkit | D: Streamlit |
 |------|:---:|:---:|:---:|:---:|
 | 無料枠で完結 | ◯（非商用） | ◎（商用可） | ✕（Blaze 必須） | ◯ |
@@ -68,17 +104,40 @@
 
 ## 確定した技術仕様
 
+### 図3: システム構成（どこで何が動くか）
+
+```mermaid
+flowchart LR
+  subgraph BR["ブラウザ（利用者の端末）"]
+    UI["チャット画面<br/>React"]
+    LS[("localStorage<br/>履歴・特性")]
+  end
+  subgraph VC["Vercel Hobby（無料）"]
+    API["Next.js API ルート<br/>/api/chat・/api/analyze"]
+    LIB["lib/<br/>ルーター・採点・ルール"]
+  end
+  UI <--> LS
+  UI -- "会話 + 特性" --> API
+  API --> LIB
+  LIB -- "判定・点数" --> JEV["Jev API<br/>TypeSafe AI"]
+  LIB -- "文章づくり" --> GEM["Gemini API<br/>Google AI Studio"]
+```
+
+- API キーはサーバー（Vercel）側だけに置き、ブラウザには渡しません
+- 会話ログはサーバーに保存せず、利用者の端末（localStorage）にだけ残します
+
+
 | レイヤー | 採用技術 | 備考 |
 |---------|---------|------|
 | フロント + API | Next.js 16（App Router）/ React 19 / TypeScript | |
 | 判定モデル | Jev（`@typesafe-ai/sdk`）既定 `jev-latest` | 意図の振り分け・スコア・答え漏れ判定。任意（無くても動く） |
 | LLM | Gemini API（`@google/genai`）既定 `gemini-2.5-flash` | 文章づくり担当。`GEMINI_MODEL` で変更可。無料枠の対象モデル・上限は変わるので AI Studio で確認 |
 | 出力の型検証 | zod v4（`z.toJSONSchema` → `responseJsonSchema`） | LLM の出力を zod で検証。不一致なら安全側にフォールバック |
-| 採点 | ルールベース 4 : Gemini 6 のブレンド | Gemini が無くてもルールだけで動く |
+| 採点 | ルール 3 : Jev 7（Jev が無ければ ルール 4 : Gemini 6） | どの API が無くてもルールだけで動く。詳細は [scoring.md](scoring.md) |
 | 保存 | localStorage（端末内） | 職場の会話ログを外部に持ち出さない |
 | テスト | Vitest | API キー無しで全テストが通る |
 | CI | GitHub Actions | 公開リポジトリは無料 |
-| ホスティング | Vercel Hobby | 環境変数に `GEMINI_API_KEY` を設定するだけ |
+| ホスティング | Vercel Hobby | 環境変数に `GEMINI_API_KEY` と `TYPESAFE_API_KEY` を設定するだけ |
 
 ## Jev の採用判断
 
@@ -89,6 +148,16 @@
 | **Jev（採用）** | 選択・段階評価・はい/いいえを確率つきで返す。LLM より揺れにくく速い。出力トークン無料 | 早期アクセス制でキー入手に待ちがある。無料枠の有無が未確認。会話を外部に送る先が増える |
 | Gemini だけで判定 | 追加サービス不要・無料枠で完結 | 点数が毎回揺れる。確信度が取れない |
 | ルールだけで判定 | 無料・決定的 | 言い換えに弱い |
+
+### 図4: Jev を入れても「無料で動く状態」は残る
+
+```mermaid
+flowchart LR
+  K{"TYPESAFE_API_KEY<br/>を設定した？"}
+  K -- "していない" --> F["ルール + Gemini<br/>無料で動く"]
+  K -- "した" --> P["ルール + Jev + Gemini<br/>採点が安定する<br/>1回 0.01円未満の見込み"]
+  P -. "Jev が落ちたら自動で" .-> F
+```
 
 **無料枠との関係**: Jev のキーは任意です。未設定なら「ルール + Gemini」で今までどおり無料で動きます。
 Jev の料金は入力 $0.042/100万トークン・出力無料と報じられており、1回の採点（数千トークン）あたり 0.01 円未満の見込みです。
