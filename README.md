@@ -22,11 +22,18 @@ AI（上司役）と会話しながら **報告・連絡・相談** を練習し
 採点軸: 結論ファースト / 具体性 / 簡潔さ / 早めの共有 / 受信力（質問に答えているか）/ 相談の質
 → 詳しくは [docs/scoring.md](docs/scoring.md)
 
-## 仕組み（振り分けの流れ）
+## 仕組み（役割分担）
+
+| 担当 | 役割 |
+|------|------|
+| **Jev**（TypeSafe AI） | **判定と数値化**。意図の振り分け（確率つき）、各軸の段階評価、「質問に答えたか」の判定 |
+| **Gemini** | **文章づくり**。上司役の返答、できていること・言い換え例などのフィードバック |
+| **ルール** | **保険**。API が止まっても・キーが無くても動く。明確な発言は API を呼ばずに振り分ける |
 
 ```
-発言 → ルーター ─┬─ キーワードで明確 → そのまま確定（Gemini を呼ばない = 無料枠の節約）
-                 └─ あいまい → Gemini が分類（JSON Schema で選択肢を固定）
+発言 → ルーター ─┬─ キーワードで明確 → そのまま確定（API を呼ばない）
+                 ├─ あいまい → Jev の choice で判定（確信度60%未満なら「何の話か宣言しよう」とヒント）
+                 └─ Jev が無い → Gemini が分類
         ↓
    意図別ハンドラー（報告 / 連絡 / 相談 / タスク分解 / その他）または 採点
 ```
@@ -38,6 +45,7 @@ AI（上司役）と会話しながら **報告・連絡・相談** を練習し
 | | |
 |---|---|
 | フロント + API | Next.js 16 (App Router) / React 19 / TypeScript |
+| 判定モデル | Jev（`@typesafe-ai/sdk`、既定 `jev-latest`） |
 | LLM | Gemini API（`@google/genai`、既定 `gemini-2.5-flash`） |
 | 型検証 | zod（LLM の JSON 出力を検証） |
 | 保存 | localStorage（端末内のみ） |
@@ -50,11 +58,12 @@ AI（上司役）と会話しながら **報告・連絡・相談** を練習し
 
 ```bash
 npm install
-cp .env.example .env.local   # GEMINI_API_KEY を設定（空でもモックモードで動きます）
+cp .env.example .env.local   # GEMINI_API_KEY / TYPESAFE_API_KEY を設定（空でもモックモードで動きます）
 npm run dev                  # http://localhost:3000
 ```
 
 Gemini の API キーは [Google AI Studio](https://aistudio.google.com/apikey) で無料で発行できます。
+Jev の API キーは [TypeSafe AI](https://docs.typesafe.ai/) の早期アクセス経由で発行します。
 
 | コマンド | 内容 |
 |---------|------|
@@ -65,17 +74,20 @@ Gemini の API キーは [Google AI Studio](https://aistudio.google.com/apikey) 
 
 ### モックモード
 
-`GEMINI_API_KEY` が未設定のときは、振り分けはキーワードのみ、返答は定型文、採点はルールのみで動きます。
+どちらのキーも未設定のときは、振り分けはキーワードのみ、返答は定型文、採点はルールのみで動きます。
+片方だけ設定した場合は、使える方だけが働きます（Jev だけ → 数値は Jev、文章は定型文）。
 キーを用意する前に画面や採点の動きを確かめたいときに使えます。
 
 ## デプロイ（Vercel・無料）
 
 1. Vercel にこのリポジトリをインポート
-2. Environment Variables に `GEMINI_API_KEY`（必要なら `GEMINI_MODEL`）を設定
+2. Environment Variables に `GEMINI_API_KEY` と `TYPESAFE_API_KEY`（必要なら `GEMINI_MODEL`）を設定
 3. Deploy
 
 ## 注意
 
 - **Gemini API の無料枠では、入力内容が Google のサービス改善に使われる場合があります。** 実在の顧客名や社外秘の情報は入力しないでください
+- **`TYPESAFE_API_KEY` を設定すると、会話内容が TypeSafe AI（Jev）にも送信されます。** 利用規約・データの扱いを確認してから使ってください
+- **Jev は無料枠の有無が確認できていません**（入力 $0.042/100万トークン・出力無料と報じられています）。1回の採点は数千トークンなので、1,000回採点しても数セント程度の見込みですが、「完全無料」ではなくなる可能性があります
 - Vercel Hobby プランは非商用利用に限られます。商用化する場合は docs/tech-selection.md の案B（Cloudflare）への移行を検討してください
 - 無料枠のリクエスト上限に達すると一時的にエラーになります。時間をおいて再度お試しください

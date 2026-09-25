@@ -5,7 +5,7 @@ import { loadSessions, loadTraits, saveSession, saveTraits, type SavedSession } 
 import { INTENT_LABELS, TRAITS, TRAIT_LABELS, type AnalysisResult, type ChatReply, type Message, type Trait } from "@/lib/types";
 import { ScorePanel } from "./ScorePanel";
 
-type UiMessage = Message & { hint?: string; routedBy?: ChatReply["routedBy"] };
+type UiMessage = Message & { hint?: string; routedBy?: ChatReply["routedBy"]; confidence?: number };
 
 const SCENARIOS = [
   { label: "遅れを報告する", text: "資料作成の件で報告です。" },
@@ -70,7 +70,7 @@ export function Trainer() {
     setError(null);
     try {
       const r = await post<ChatReply>("/api/chat", withUser);
-      const tagged = withUser.map((m, i) => (i === withUser.length - 1 ? { ...m, intent: r.intent, routedBy: r.routedBy } : m));
+      const tagged = withUser.map((m, i) => (i === withUser.length - 1 ? { ...m, intent: r.intent, routedBy: r.routedBy, confidence: r.confidence } : m));
       const next: UiMessage[] = [...tagged, { role: "assistant", content: r.reply, questions: r.questions, hint: r.hint }];
       setMessages(next);
       if (r.analysis) record(r.analysis, next);
@@ -134,6 +134,7 @@ export function Trainer() {
               {m.role === "user" && m.intent && (
                 <span className="badge" title={`振り分け: ${m.routedBy}`}>
                   {INTENT_LABELS[m.intent]}
+                  {m.confidence !== undefined && ` ${Math.round(m.confidence * 100)}%`}
                 </span>
               )}
               <p>{m.content}</p>
