@@ -4,19 +4,19 @@
 
 ```mermaid
 flowchart TD
-  U[ユーザーの発言] --> API[/api/chat]
-  API --> R{ルーター<br/>lib/router.ts}
-  R -- "① キーワードで明確" --> I[意図が確定]
-  R -- "② あいまい" --> J[Jev choice<br/>意図 + 確信度]
+  U["ユーザーの発言"] --> API["POST /api/chat"]
+  API --> R{"ルーター<br/>lib/router.ts"}
+  R -- "① キーワードで明確" --> I["意図が確定"]
+  R -- "② あいまい" --> J["Jev choice<br/>意図 + 確信度"]
   J --> I
-  J -. "キー無し・失敗" .-> G[Gemini で分類<br/>enum を JSON Schema で強制]
+  J -. "キー無し・失敗" .-> G["Gemini で分類<br/>enum を JSON Schema で強制"]
   G --> I
-  G -. "失敗・キー無し" .-> F[chat にフォールバック]
+  G -. "失敗・キー無し" .-> F["chat にフォールバック"]
   F --> I
-  I -->|report / contact / consult / breakdown / chat| H[意図別ハンドラー<br/>lib/handlers.ts<br/>AI が上司役で返答 + 確認質問]
-  I -->|analyze| S[採点<br/>lib/scoring/analyze.ts]
-  H --> OUT[返答 + ヒント + 質問リスト]
-  S --> OUT2[スコア + フィードバック]
+  I -- "report / contact / consult / breakdown / chat" --> H["意図別ハンドラー<br/>lib/handlers.ts<br/>AI が上司役で返答 + 確認質問"]
+  I -- "analyze" --> S["採点<br/>lib/scoring/analyze.ts"]
+  H --> OUT["返答 + ヒント + 質問リスト"]
+  S --> OUT2["スコア + フィードバック"]
 ```
 
 ## 意図（ルーターの振り分け先）
