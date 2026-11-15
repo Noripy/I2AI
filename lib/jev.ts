@@ -28,7 +28,7 @@ export function isJevEnabled(): boolean {
   return getClient() !== null;
 }
 
-export async function askJev<const Q extends Questions>(state: EntryType, questions: Q): Promise<SystemOneResult<Q> | null> {
+export async function askJev<const Q extends Questions>(state: NonNullable<EntryType>, questions: Q): Promise<SystemOneResult<Q> | null> {
   const jev = getClient();
   if (!jev) return null;
   try {

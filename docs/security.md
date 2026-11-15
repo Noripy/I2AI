@@ -134,7 +134,7 @@ sequenceDiagram
 | # | 場所（GitHub の Settings） | 設定 | しないとどうなるか |
 |---|--------------------------|------|-------------------|
 | 1 | General → Default branch | `main` にする | 毎日の検査と Dependabot が動かない（デフォルトブランチでしか動かないため） |
-| 2 | Code security | Dependabot alerts / Dependabot security updates / Secret scanning / Push protection を有効化 | 脆弱性の公表時の即時 PR と、キーの誤コミットの検知が動かない |
+| 2 | Code security | **Dependency graph** / Dependabot alerts / Dependabot security updates / Secret scanning / Push protection を有効化 | Dependency graph が無いと、PR の「依存の検査」が毎回失敗する。ほかは、脆弱性の公表時の即時 PR と、キーの誤コミットの検知が動かない |
 | 3 | Actions → General → Workflow permissions | 「Allow GitHub Actions to create and approve pull requests」にチェック | 自動修正 PR が作れず、Issue の通知になる |
 | 4 | General → Pull Requests | 「Allow auto-merge」にチェック | 自動マージが動かない |
 | 5 | Branches → `main` の保護ルール | 必須チェックに `test`（CI）と Security の各ジョブを指定 | 自動マージを安全のため見送る（CI を待たずにマージされるのを防ぐ仕組み） |

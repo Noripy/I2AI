@@ -1,3 +1,4 @@
+import { zstdDecompressSync } from "node:zlib";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Question, Questions } from "@typesafe-ai/sdk";
 import { configureJev } from "@/lib/jev";
@@ -5,10 +6,17 @@ import { routeIntent } from "@/lib/router";
 import { analyzeConversation } from "@/lib/scoring/analyze";
 import type { Message } from "@/lib/types";
 
+/** SDK が送るリクエスト本文を読む。SDK 0.7 以降は既定で zstd 圧縮して送るので、その場合は展開する */
+function sentBody(init?: RequestInit): { questions: Questions } {
+  const body = init?.body;
+  const text = typeof body === "string" ? body : zstdDecompressSync(body as Uint8Array).toString("utf8");
+  return JSON.parse(text);
+}
+
 /** 質問ごとの答えを決める関数から、Jev API を模した fetch を作る */
 function mockJev(answer: (name: string, q: Question) => unknown) {
   const fetch = vi.fn(async (_url: string, init?: RequestInit) => {
-    const { questions } = JSON.parse(String(init?.body)) as { questions: Questions };
+    const { questions } = sentBody(init);
     const answers = Object.fromEntries(Object.entries(questions).map(([name, q]) => [name, answer(name, q)]));
     return new Response(JSON.stringify({ model: "jev-test", answers, usage: { input_tokens: 1, output_tokens: 0 } }), {
       status: 200,
@@ -65,7 +73,7 @@ describe("analyze × Jev", () => {
     const r = await analyzeConversation(messages, []);
 
     expect(fetch).toHaveBeenCalledTimes(1); // 全軸を1リクエストで聞く
-    const sent = JSON.parse(String(fetch.mock.calls[0][1]?.body)).questions;
+    const sent = sentBody(fetch.mock.calls[0][1]).questions;
     expect(sent).not.toHaveProperty("consultQuality"); // 相談が無いので聞かない
 
     expect(r.source).toBe("rules+jev");
