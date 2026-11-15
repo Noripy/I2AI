@@ -25,9 +25,12 @@ jobs:
       - name: パッチ / マイナー更新なら自動マージを予約
         if: steps.meta.outputs.update-type == 'version-update:semver-patch' || steps.meta.outputs.update-type == 'version-update:semver-minor'
         run: |
-          # ブランチ保護（必須チェック）が無いと「CI を待たずにマージ」になってしまうので、その場合は何もしない
-          if [ "$(gh api "repos/$GH_REPO/branches/$BASE" --jq .protected)" != "true" ]; then
-            echo "::warning::$BASE にブランチ保護が無いため自動マージしません（docs/security.md の初期設定を参照）"
+          # 必須チェックが無いと「CI を待たずにマージ」になってしまうので、その場合は何もしない。
+          # Rulesets（新方式）と classic のブランチ保護（旧方式）のどちらで設定されていてもよい
+          ruleset=$(gh api "repos/$GH_REPO/rules/branches/$BASE" --jq '[.[] | select(.type == "required_status_checks")] | length' 2>/dev/null || echo 0)
+          classic=$(gh api "repos/$GH_REPO/branches/$BASE" --jq .protected 2>/dev/null || echo false)
+          if [ "$ruleset" = "0" ] && [ "$classic" != "true" ]; then
+            echo "::warning::$BASE に必須チェックが設定されていないため自動マージしません（docs/security.md の初期設定を参照）"
             exit 0
           fi
           gh pr merge --auto --squash "$PR_URL"

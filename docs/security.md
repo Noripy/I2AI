@@ -137,7 +137,7 @@ sequenceDiagram
 | 2 | Code security | **Dependency graph** / Dependabot alerts / Dependabot security updates / Secret scanning / Push protection を有効化 | Dependency graph が無いと、PR の「依存の検査」が毎回失敗する。ほかは、脆弱性の公表時の即時 PR と、キーの誤コミットの検知が動かない |
 | 3 | Actions → General → Workflow permissions | 「Allow GitHub Actions to create and approve pull requests」にチェック | 自動修正 PR が作れず、Issue の通知になる |
 | 4 | General → Pull Requests | 「Allow auto-merge」にチェック | 自動マージが動かない |
-| 5 | Branches → `main` の保護ルール | 必須チェックに `test`（CI）と Security の各ジョブを指定 | 自動マージを安全のため見送る（CI を待たずにマージされるのを防ぐ仕組み） |
+| 5 | Rules → Rulesets → New branch ruleset（対象: default branch） | 「Require status checks to pass」に `test`（CI）と Security の各ジョブ（依存パッケージの脆弱性 / 防御のスモークテスト / コードの静的解析 / PR で増える依存の検査）を指定 | 自動マージを安全のため見送る（CI を待たずにマージされるのを防ぐ仕組み） |
 
 ## Issue が来たら
 
@@ -162,6 +162,7 @@ npm run security:smoke                      # 攻撃パターンを投げる
 
 - **レート制限はメモリ内**です。Vercel のようなサーバーレスではインスタンスごとに別カウントになるので、厳密な上限ではなく歯止めです。厳密にするなら Upstash Redis（無料枠あり）に差し替えます。`RateLimiter` の呼び出し側は変えずに済みます
 - **ログイン機能がありません。** URL を知っていれば誰でも使えます。公開範囲を絞るなら Vercel の Deployment Protection か、認証の追加が必要です
-- **自動修正 PR では CI が自動で走りません**（GitHub の仕様で、ワークフローが作った PR は他のワークフローを起動しない）。PR を作る前に同じ検査を済ませていますが、ブランチ保護の必須チェックを満たすには PR を一度閉じて開き直してください。Dependabot の PR にはこの制限はありません
+- **自動修正 PR では CI が自動で走りません**（GitHub の仕様で、ワークフローが作った PR は他のワークフローを起動しない）。PR を作る前に同じ検査を済ませていますが、必須チェックを満たすには PR を一度閉じて開き直してください。Dependabot の PR にはこの制限はありません
 - **未公表の脆弱性（ゼロデイ）は検知できません。** 公表後に早く直す仕組みです
 - プロンプトインジェクションは完全には防げません（上の「備え」を参照）
+- **`main` へは直接プッシュできません**（上の設定 5 を入れた後）。変更は必ず PR を作り、検査が通ってからマージします
