@@ -1,5 +1,6 @@
 import { noul, score, type Questions } from "@typesafe-ai/sdk";
 import { askJev, toPercent } from "../jev";
+import { cleanText } from "../security/sanitize";
 import type { Axis, AxisScores, Message } from "../types";
 import { isConsult, qaPairs, userUtterances } from "./rules";
 
@@ -77,12 +78,12 @@ export async function scoreByJev(messages: Message[]): Promise<JevScoring | null
   }
   pairs.forEach((p, i) => {
     questions[`answered_${i}`] = noul(
-      { 問い: "部下の返答は、上司の質問に答えているか", 上司の質問: p.question, 部下の返答: p.answer },
+      { 問い: "部下の返答は、上司の質問に答えているか", 上司の質問: cleanText(p.question), 部下の返答: cleanText(p.answer) },
       { true: "質問に答えている（言葉が違っても内容が答えになっていればよい）", false: "質問を無視している・別の話をしている" },
     );
   });
 
-  const res = await askJev({ 部下の発言: utterances }, questions);
+  const res = await askJev({ 部下の発言: utterances.map(cleanText) }, questions);
   if (!res) return null;
 
   const axes = { listening: null, consultQuality: null } as AxisScores;

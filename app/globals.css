@@ -67,11 +67,10 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 .axes { list-style: none; padding: 0; margin: 12px 0; display: flex; flex-direction: column; gap: 8px; font-size: 14px; }
 .axis-row { display: flex; justify-content: space-between; }
 .num { font-variant-numeric: tabular-nums; font-weight: 600; }
-.bar { height: 6px; background: var(--bg); border-radius: 3px; overflow: hidden; }
-.fill { height: 100%; }
-.fill.good { background: var(--good); }
-.fill.ok { background: var(--ok); }
-.fill.low { background: var(--low); }
+.bar { display: block; width: 100%; height: 6px; background: var(--bg); border-radius: 3px; }
+.fill.good { fill: var(--good); }
+.fill.ok { fill: var(--ok); }
+.fill.low { fill: var(--low); }
 .panel h3 { font-size: 14px; margin: 16px 0 6px; }
 .bullets { margin: 0; padding-left: 18px; font-size: 14px; }
 .before { font-size: 13px; color: var(--muted); text-decoration: line-through; margin: 0 0 6px; }

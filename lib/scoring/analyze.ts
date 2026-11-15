@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { generateJson } from "../gemini";
 import { routeByRules } from "../router";
+import { toTranscript } from "../security/sanitize";
 import { clamp } from "../text";
 import { AXES, AXIS_LABELS, TRAIT_LABELS, type AnalysisResult, type Axis, type AxisScores, type Message, type Trait } from "../types";
 import { scoreByJev } from "./jev";
@@ -17,10 +18,10 @@ import { buildNotes, overallScore, scoreByRules } from "./rules";
 const RULE_WEIGHT = { jev: 0.3, gemini: 0.4 } as const;
 
 const feedbackSchema = z.object({
-  good: z.array(z.string()).max(3),
-  improve: z.array(z.string()).max(3),
-  rewrite: z.object({ before: z.string(), after: z.string() }).nullable(),
-  nextAction: z.string(),
+  good: z.array(z.string().max(400)).max(3),
+  improve: z.array(z.string().max(400)).max(3),
+  rewrite: z.object({ before: z.string().max(2000), after: z.string().max(2000) }).nullable(),
+  nextAction: z.string().max(200),
 });
 const nullableScore = z.number().min(0).max(100).nullable();
 const scoredFeedbackSchema = feedbackSchema.extend({
@@ -102,7 +103,7 @@ export async function analyzeConversation(messages: Message[], traits: Trait[]):
   const notes = jev ? buildNotes(jev.missed, jev.hoarding, traits) : rules.notes;
   let axes = jev ? blendAxes(rules.axes, jev.axes, RULE_WEIGHT.jev) : rules.axes;
 
-  const transcript = messages.map((m) => `${m.role === "user" ? "ユーザー" : "AI"}: ${m.content}`).join("\n");
+  const transcript = toTranscript(messages, { user: "ユーザー", assistant: "AI" });
   const prompt = [
     `ユーザーの特性: ${traits.map((t) => TRAIT_LABELS[t]).join("、") || "指定なし"}`,
     `${jev ? "確定スコア" : "ルールベースの参考スコア"}: ${JSON.stringify(axes)}`,

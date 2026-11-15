@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { generateJson } from "./gemini";
+import { toTranscript } from "./security/sanitize";
 import { TRAIT_LABELS, type Intent, type Message, type Trait } from "./types";
 
 /**
@@ -8,10 +9,11 @@ import { TRAIT_LABELS, type Intent, type Message, type Trait } from "./types";
  * → ユーザーはその質問に答える練習になり、答え漏れは受信力スコアに反映される。
  */
 
+// 長さの上限も縛る（乗っ取られた LLM に長文を吐かせない）
 const replySchema = z.object({
-  reply: z.string(),
-  hint: z.string(),
-  questions: z.array(z.string()).max(3),
+  reply: z.string().max(1200),
+  hint: z.string().max(200),
+  questions: z.array(z.string().max(200)).max(3),
 });
 export type HandlerOutput = z.infer<typeof replySchema>;
 
@@ -61,10 +63,7 @@ const MOCK: Record<Exclude<Intent, "analyze">, HandlerOutput> = {
 
 export async function handleIntent(intent: Exclude<Intent, "analyze">, messages: Message[], traits: Trait[]): Promise<HandlerOutput> {
   const traitNote = traits.length ? `部下の特性: ${traits.map((t) => TRAIT_LABELS[t]).join("、")}。これを踏まえて hint を出す。` : "";
-  const transcript = messages
-    .slice(-10)
-    .map((m) => `${m.role === "user" ? "部下" : "上司(あなた)"}: ${m.content}`)
-    .join("\n");
+  const transcript = toTranscript(messages.slice(-10), { user: "部下", assistant: "上司(あなた)" });
 
   try {
     const res = await generateJson({

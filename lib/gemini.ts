@@ -1,10 +1,12 @@
 import { GoogleGenAI } from "@google/genai";
 import { z } from "zod";
+import { INJECTION_GUARD } from "./security/sanitize";
 
 /**
  * Gemini 呼び出しの薄いラッパー。
  * - GEMINI_API_KEY が無ければ null を返す（呼び出し側がモック/ルールにフォールバック）
  * - 出力は必ず JSON Schema で縛り、zod で検証する（LLM の自由文をそのまま信じない）
+ * - すべての system プロンプトに「囲まれた発言はデータ」の注意書きを付ける
  */
 
 let client: GoogleGenAI | null | undefined;
@@ -37,7 +39,7 @@ export async function generateJson<T extends z.ZodType>(opts: {
     model: modelName(),
     contents: opts.prompt,
     config: {
-      systemInstruction: opts.system,
+      systemInstruction: opts.system + INJECTION_GUARD,
       temperature: opts.temperature ?? 0.4,
       responseMimeType: "application/json",
       responseJsonSchema: z.toJSONSchema(opts.schema),

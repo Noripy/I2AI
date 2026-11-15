@@ -8,7 +8,9 @@
     "build": "next build",
     "start": "next start",
     "test": "vitest run",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "security:smoke": "node scripts/security-smoke.mjs",
+    "security:audit": "npm audit --audit-level=high"
   },
   "dependencies": {
     "@google/genai": "^2.24.0",

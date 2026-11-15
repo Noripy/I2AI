@@ -183,6 +183,11 @@ lib/
   scoring/jev.ts         Jev 採点（score / noul を1リクエストで）
   scoring/analyze.ts     ルール + Jev + Gemini の統合採点
   storage.ts             localStorage
+  security/guard.ts      API の入口ガード（送信元・サイズ・レート制限・検証）
+  security/rateLimit.ts  レート制限
+  security/sanitize.ts   プロンプトインジェクション対策
   types.ts               型・定数
+proxy.ts                 セキュリティヘッダー + CSP
+scripts/security-smoke.mjs  防御のスモークテスト
 tests/                   Vitest
 ```

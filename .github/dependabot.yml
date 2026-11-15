@@ -1,0 +1,27 @@
+# 依存パッケージと GitHub Actions の更新 PR を自動で作る。
+# 脆弱性の修正（セキュリティ更新）は、下のスケジュールに関係なく見つかり次第 PR になる。
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Asia/Tokyo
+    open-pull-requests-limit: 5
+    groups:
+      # 細かい更新は1つの PR にまとめる（PR の洪水を防ぐ）
+      minor-and-patch:
+        update-types: [minor, patch]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Asia/Tokyo
+    groups:
+      actions:
+        patterns: ["*"]

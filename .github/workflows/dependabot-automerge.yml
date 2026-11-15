@@ -1,0 +1,33 @@
+name: Dependabot auto-merge
+
+# Dependabot の PR のうち、パッチ / マイナー更新だけを「CI が通ったら自動マージ」にする。
+# メジャー更新は壊れる可能性があるので人が見る。
+on: pull_request
+
+permissions:
+  contents: read
+
+jobs:
+  automerge:
+    if: github.event.pull_request.user.login == 'dependabot[bot]' && github.repository == 'Noripy/I2AI'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      PR_URL: ${{ github.event.pull_request.html_url }}
+      BASE: ${{ github.event.pull_request.base.ref }}
+    steps:
+      - id: meta
+        uses: dependabot/fetch-metadata@25dd0e34f4fe68f24cc83900b1fe3fe149efef98 # v3.1.0
+      - name: パッチ / マイナー更新なら自動マージを予約
+        if: steps.meta.outputs.update-type == 'version-update:semver-patch' || steps.meta.outputs.update-type == 'version-update:semver-minor'
+        run: |
+          # ブランチ保護（必須チェック）が無いと「CI を待たずにマージ」になってしまうので、その場合は何もしない
+          if [ "$(gh api "repos/$GH_REPO/branches/$BASE" --jq .protected)" != "true" ]; then
+            echo "::warning::$BASE にブランチ保護が無いため自動マージしません（docs/security.md の初期設定を参照）"
+            exit 0
+          fi
+          gh pr merge --auto --squash "$PR_URL"

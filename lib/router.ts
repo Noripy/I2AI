@@ -2,6 +2,7 @@ import { z } from "zod";
 import { choice } from "@typesafe-ai/sdk";
 import { generateJson } from "./gemini";
 import { askJev } from "./jev";
+import { cleanText, toTranscript } from "./security/sanitize";
 import { INTENTS, type Intent, type Message } from "./types";
 
 /**
@@ -53,7 +54,7 @@ export function routeByRules(text: string): { intent: Intent; score: number; run
 
 const routeSchema = z.object({
   intent: z.enum(INTENTS),
-  reason: z.string(),
+  reason: z.string().max(100),
 });
 
 const ROUTER_SYSTEM = `あなたは職場コミュニケーション練習アプリの振り分け係です。
@@ -75,12 +76,11 @@ export async function routeIntent(messages: Message[]): Promise<RouteResult> {
     return { intent: byRules.intent, routedBy: "rules", reason: "キーワード一致" };
   }
 
-  const context = messages
-    .slice(-4)
-    .map((m) => ({ 話者: m.role === "user" ? "部下" : "上司", 発言: m.content }));
+  const recent = messages.slice(-4);
+  const context = recent.map((m) => ({ 話者: m.role === "user" ? "部下" : "上司", 発言: cleanText(m.content) }));
 
   const jev = await askJev(
-    { 直近の会話: context, 判定対象: latest },
+    { 直近の会話: context, 判定対象: cleanText(latest) },
     { intent: choice("職場で部下が上司に送った「判定対象」の発言は、次のどれに当たるか", INTENT_CRITERIA) },
   );
   if (jev) {
@@ -95,7 +95,7 @@ export async function routeIntent(messages: Message[]): Promise<RouteResult> {
   }
 
   try {
-    const text = context.map((c) => `${c.話者}: ${c.発言}`).join("\n");
+    const text = toTranscript(recent, { user: "部下", assistant: "上司" });
     const res = await generateJson({
       system: ROUTER_SYSTEM,
       prompt: `直近の会話:\n${text}\n\n最新のユーザー発言を分類してください。`,

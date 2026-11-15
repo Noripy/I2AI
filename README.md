@@ -71,6 +71,8 @@ Jev の API キーは [TypeSafe AI](https://docs.typesafe.ai/) の早期アク�
 | `npm test` | テスト（API キー不要） |
 | `npm run typecheck` | 型チェック |
 | `npm run build` | 本番ビルド |
+| `npm run security:audit` | 依存パッケージの脆弱性検査 |
+| `npm run security:smoke` | 起動中のアプリに攻撃パターンを投げて防御を確認 |
 
 ### モックモード
 
@@ -83,6 +85,12 @@ Jev の API キーは [TypeSafe AI](https://docs.typesafe.ai/) の早期アク�
 1. Vercel にこのリポジトリをインポート
 2. Environment Variables に `GEMINI_API_KEY` と `TYPESAFE_API_KEY`（必要なら `GEMINI_MODEL`）を設定
 3. Deploy
+
+## セキュリティ
+
+- **実装**: すべての API は入口ガード（送信元チェック・サイズ上限・レート制限・スキーマ検証）を通り、ページには nonce 方式の CSP を付けています
+- **運用**: 毎日の自動検査（依存の脆弱性・静的解析・防御のスモークテスト）→ 自動修正 PR → 自動マージ → 直せなければ Issue、というループを GitHub Actions で回しています
+- 最初に1回だけ必要な GitHub の設定と、通知が来たときの手順は [docs/security.md](docs/security.md) を見てください。脆弱性の報告方法は [SECURITY.md](SECURITY.md) にあります
 
 ## 注意
 

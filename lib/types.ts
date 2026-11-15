@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { stripInvisible } from "./security/sanitize";
 
 /** ルーターが振り分ける意図。報連相の3つ + 支援系2つ + その他 */
 export const INTENTS = ["report", "contact", "consult", "breakdown", "analyze", "chat"] as const;
@@ -27,16 +28,16 @@ export const TRAIT_LABELS: Record<Trait, string> = {
 
 export const messageSchema = z.object({
   role: z.enum(["user", "assistant"]),
-  content: z.string().min(1).max(2000),
+  content: z.string().max(2000).transform(stripInvisible).pipe(z.string().min(1)),
   intent: z.enum(INTENTS).optional(),
   /** assistant が投げた質問。受信力（質問への回答漏れ）の判定に使う */
-  questions: z.array(z.string()).optional(),
+  questions: z.array(z.string().max(300).transform(stripInvisible)).max(5).optional(),
 });
 export type Message = z.infer<typeof messageSchema>;
 
 export const chatRequestSchema = z.object({
   messages: z.array(messageSchema).min(1).max(40),
-  traits: z.array(z.enum(TRAITS)).default([]),
+  traits: z.array(z.enum(TRAITS)).max(TRAITS.length).default([]),
 });
 
 export const analyzeRequestSchema = chatRequestSchema;

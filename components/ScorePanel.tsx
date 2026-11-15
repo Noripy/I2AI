@@ -33,9 +33,10 @@ export function ScorePanel({ result }: { result: AnalysisResult }) {
                 <span>{AXIS_LABELS[a]}</span>
                 <span className="num">{v ?? "—"}</span>
               </div>
-              <div className="bar" aria-hidden>
-                {v !== null && <div className={`fill ${band(v)}`} style={{ width: `${v}%` }} />}
-              </div>
+              {/* インライン style を使わない（CSP で style 属性を禁止しているため SVG の属性で幅を出す） */}
+              <svg className="bar" viewBox="0 0 100 6" preserveAspectRatio="none" aria-hidden>
+                {v !== null && <rect className={`fill ${band(v)}`} width={v} height="6" />}
+              </svg>
             </li>
           );
         })}
